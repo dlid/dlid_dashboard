@@ -30,8 +30,19 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.content.Intent;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import android.provider.Settings.Secure;
+import android.widget.Toast;
 
 import static android.Manifest.permission.READ_CONTACTS;
 
@@ -91,6 +102,10 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
                 attemptLogin();
             }
         });
+
+        String installation_id = Installation.getDeviceName() + " " + Installation.id(getBaseContext());
+
+        mEmailView.setText( installation_id);
 
         mLoginFormView = findViewById(R.id.login_form);
         mProgressView = findViewById(R.id.login_progress);
@@ -296,57 +311,53 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
      * Represents an asynchronous login/registration task used to authenticate
      * the user.
      */
-    public class UserLoginTask extends AsyncTask<Void, Void, Boolean> {
+    public class UserLoginTask extends AsyncTask<Void, Void, DlidApiLoginResult> {
 
-        private final String mEmail;
-        private final String mPassword;
+            private final String mEmail;
+            private final String mPassword;
 
-        UserLoginTask(String email, String password) {
-            mEmail = email;
-            mPassword = password;
-        }
-
-        @Override
-        protected Boolean doInBackground(Void... params) {
-            // TODO: attempt authentication against a network service.
-
-            try {
-                // Simulate network access.
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                return false;
+            UserLoginTask(String email, String password) {
+                mEmail = email;
+                mPassword = password;
             }
 
-            for (String credential : DUMMY_CREDENTIALS) {
-                String[] pieces = credential.split(":");
-                if (pieces[0].equals(mEmail)) {
-                    // Account exists, return true if the password matches.
-                    return pieces[1].equals(mPassword);
+            @Override
+            protected DlidApiLoginResult doInBackground(Void... params) {
+                // TODO: attempt authentication against a network service.
+
+                try {
+                    // Simulate network access.
+                    DlidApi dlidApi = new DlidApi(getBaseContext());
+                    return dlidApi.Login(mEmail, mPassword);
+
+                } catch (Exception e) {
+                    DlidApiLoginResult res = new DlidApiLoginResult();
+                    res.setException(e);
+                    return res;
+            }
+
+            }
+
+            @Override
+            protected void onPostExecute(final DlidApiLoginResult result) {
+                mAuthTask = null;
+                showProgress(false);
+
+                if (result.getLoggedIn()) {
+                    //finish();
+                    Toast.makeText(getApplicationContext(),"Yes, man. Oh yeah!", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(getApplicationContext(), result.getMessage(), Toast.LENGTH_SHORT).show();
+                    mPasswordView.setError(getString(R.string.error_incorrect_password));
+                    mPasswordView.requestFocus();
                 }
             }
 
-            // TODO: register the new account here.
-            return true;
-        }
-
-        @Override
-        protected void onPostExecute(final Boolean success) {
-            mAuthTask = null;
-            showProgress(false);
-
-            if (success) {
-                finish();
-            } else {
-                mPasswordView.setError(getString(R.string.error_incorrect_password));
-                mPasswordView.requestFocus();
+            @Override
+            protected void onCancelled() {
+                mAuthTask = null;
+                showProgress(false);
             }
-        }
-
-        @Override
-        protected void onCancelled() {
-            mAuthTask = null;
-            showProgress(false);
-        }
     }
 }
 

@@ -64,6 +64,7 @@ public class ShareActivity extends AppCompatActivity {
         String receivedType = receivedIntent.getType();
         TextView txtView = (TextView)findViewById(R.id.textView);
         TextView resourceTitle = (TextView)findViewById(R.id.resourceTitle);
+        TextView resourceUrl = (TextView)findViewById(R.id.resourceUrl);
         txtView.setText("Action: " + receivedAction + "\n" + "Type: " + receivedType);
         ProgressBar progressBar = (ProgressBar)findViewById(R.id.progressBar3);
 
@@ -76,6 +77,7 @@ public class ShareActivity extends AppCompatActivity {
             String text = receivedIntent.getStringExtra(Intent.EXTRA_TEXT);
 
             if (text.startsWith("http://") || text.startsWith(("https://"))) {
+                resourceUrl.setText(text);
                 Meh job = new Meh();
                 job.execute(text);
             }
@@ -103,7 +105,7 @@ public class ShareActivity extends AppCompatActivity {
            //  txtView.setText( txtView.getText() + "\n\n" + message );
             TextView resourceTitle = (TextView)findViewById(R.id.resourceTitle);
 
-            Pattern mPattern = Pattern.compile("<title>(.*?)</title>", Pattern.MULTILINE);
+            Pattern mPattern = Pattern.compile("<title(?:.*?)>(.*?)</title>", Pattern.MULTILINE);
             Matcher m = mPattern.matcher(message);
             while (m.find()) {
                 resourceTitle.setText(m.group(1));

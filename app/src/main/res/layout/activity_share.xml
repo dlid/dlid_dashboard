@@ -42,8 +42,7 @@
         <TextView
             android:id="@+id/textView"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_weight="0.33"
+            android:layout_height="69dp"
             android:text="TextView" />
 
 
@@ -76,6 +75,7 @@
                     android:id="@+id/labelUrl"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:inputType="textUri"
                     android:text="Address" />
 
                 <EditText

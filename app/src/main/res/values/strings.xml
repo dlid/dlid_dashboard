@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Dlid Dashboard</string>
+    <string name="app_name">dlid.se Dashboard</string>
 
     <!-- Strings related to login -->
     <string name="prompt_email">Email</string>
