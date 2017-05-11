@@ -3,6 +3,7 @@ package se.dlid.dashboard_share;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
@@ -30,19 +31,13 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.content.Intent;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import android.provider.Settings.Secure;
+
 import android.widget.Toast;
+
+import se.dlid.dashboard_share.api.DlidClient;
+import se.dlid.dashboard_share.api.DlidApiLoginResult;
 
 import static android.Manifest.permission.READ_CONTACTS;
 
@@ -103,12 +98,22 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
             }
         });
 
-        String installation_id = Installation.getDeviceName() + " " + Installation.id(getBaseContext());
 
-        mEmailView.setText( installation_id);
+        mEmailView.setText( Installation.apiToken(getBaseContext()));
 
         mLoginFormView = findViewById(R.id.login_form);
         mProgressView = findViewById(R.id.login_progress);
+
+
+        String installation_id = Installation.apiToken(getBaseContext());
+        Toast.makeText(getApplicationContext(), "Checking your login...", Toast.LENGTH_SHORT).show();
+
+        if (installation_id != "" && installation_id != null) {
+            showProgress(true);
+            Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+            startActivity(intent);
+        }
+
     }
 
     private void populateAutoComplete() {
@@ -202,8 +207,48 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
             // Show a progress spinner, and kick off a background task to
             // perform the user login attempt.
             showProgress(true);
-            mAuthTask = new UserLoginTask(email, password);
+            mAuthTask = new UserLoginTask(getBaseContext(), email, password, Installation.id(getBaseContext()), Installation.getDeviceName()) {
+                @Override
+                protected void onPostExecute(DlidApiLoginResult result) {
+                    super.onPostExecute(result);
+                    mAuthTask = null;
+                    showProgress(false);
+
+                    if (result != null) {
+                        if (result.getLoggedIn()) {
+
+                            String token = result.getToken();
+
+                            try {
+                                Installation.writeApiToken(getBaseContext(), result.getToken(), result.getEmail(), result.getPermissions());
+                                Toast.makeText(getApplicationContext(),"Hello " + result.getEmail(), Toast.LENGTH_SHORT).show();
+                            } catch (Exception e) {
+                                Toast.makeText(getApplicationContext(),"Could not store your login information", Toast.LENGTH_SHORT).show();
+                            }
+
+                            //finish();
+                        } else {
+                            Toast.makeText(getApplicationContext(), result.getMessage(), Toast.LENGTH_SHORT).show();
+                            mPasswordView.setError(getString(R.string.error_incorrect_password));
+                            mPasswordView.requestFocus();
+                        }
+                    } else {
+                        Toast.makeText(getApplicationContext(), "An unhandled error occured", Toast.LENGTH_SHORT).show();
+                    }
+
+                }
+
+                @Override
+                protected void onCancelled() {
+                    mAuthTask = null;
+                    showProgress(false);
+                }
+
+            };
+
             mAuthTask.execute((Void) null);
+
+
         }
     }
 
@@ -306,58 +351,49 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
         int ADDRESS = 0;
         int IS_PRIMARY = 1;
     }
+}
 
-    /**
-     * Represents an asynchronous login/registration task used to authenticate
-     * the user.
-     */
-    public class UserLoginTask extends AsyncTask<Void, Void, DlidApiLoginResult> {
+/**
+ * Represents an asynchronous login/registration task used to authenticate
+ * the user.
+ */
+class UserLoginTask extends AsyncTask<Void, Void, DlidApiLoginResult> {
 
-            private final String mEmail;
-            private final String mPassword;
+    private final String mEmail;
+    private final String mPassword;
+    private final Context mContext;
+    private final String mDeviceId;
+    private final String mDeviceName;
+    private Exception mException;
 
-            UserLoginTask(String email, String password) {
-                mEmail = email;
-                mPassword = password;
-            }
-
-            @Override
-            protected DlidApiLoginResult doInBackground(Void... params) {
-                // TODO: attempt authentication against a network service.
-
-                try {
-                    // Simulate network access.
-                    DlidApi dlidApi = new DlidApi(getBaseContext());
-                    return dlidApi.Login(mEmail, mPassword);
-
-                } catch (Exception e) {
-                    DlidApiLoginResult res = new DlidApiLoginResult();
-                    res.setException(e);
-                    return res;
-            }
-
-            }
-
-            @Override
-            protected void onPostExecute(final DlidApiLoginResult result) {
-                mAuthTask = null;
-                showProgress(false);
-
-                if (result.getLoggedIn()) {
-                    //finish();
-                    Toast.makeText(getApplicationContext(),"Yes, man. Oh yeah!", Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(getApplicationContext(), result.getMessage(), Toast.LENGTH_SHORT).show();
-                    mPasswordView.setError(getString(R.string.error_incorrect_password));
-                    mPasswordView.requestFocus();
-                }
-            }
-
-            @Override
-            protected void onCancelled() {
-                mAuthTask = null;
-                showProgress(false);
-            }
+    UserLoginTask(Context context, String email, String password, String deviceId, String deviceName) {
+        mContext = context;
+        mEmail = email;
+        mPassword = password;
+        mDeviceId = deviceId;
+        mDeviceName = deviceName;
     }
+
+    public Exception getException() {return mException;}
+
+    @Override
+    protected DlidApiLoginResult doInBackground(Void... params) {
+        // TODO: attempt authentication against a network service.
+
+        try {
+            DlidClient dlidApi = new DlidClient();
+            return dlidApi.Login(mEmail, mPassword, mDeviceId, mDeviceName);
+        } catch (Exception e) {
+            mException = e;
+            return null;
+        }
+
+    }
+
+    @Override
+    protected void onPostExecute(final DlidApiLoginResult result) {
+        // Override me
+    }
+
 }
 
